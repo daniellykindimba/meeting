@@ -1,0 +1,14 @@
+[
+    {
+        "name": "Adminstrator",
+        "code": "admin"
+    },
+    {
+        "name": "Marketing Manager",
+        "code": "marketing_manager"
+    },
+    {
+        "name": "Marketing Officer",
+        "code": "marketing_officer"
+    }
+]

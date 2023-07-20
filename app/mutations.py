@@ -925,7 +925,7 @@ class CreateEventAgendaMutation(graphene.Mutation):
     class Arguments:
         event_id = graphene.Int(required=True)
         title = graphene.String(required=True)
-        description = graphene.String(required=True)
+        description = graphene.String(required=False)
 
     @login_required
     async def mutate(self, info, *args, **kwargs):
@@ -956,7 +956,7 @@ class CreateEventAgendaMutation(graphene.Mutation):
         return CreateEventAgendaMutation(
             success=True,
             message="Event Agenda created successfully",
-            event_agenda=event_agenda,
+            event_agenda=await models.EventAgenda.filter(id=event_agenda.id).first(),
         )
 
 
@@ -1128,6 +1128,47 @@ class DeleteEventDocumentMutation(graphene.Mutation):
         )
 
 
+
+class CreateUserCredentialsMutation(graphene.Mutation):
+    success = graphene.Boolean()
+    message = graphene.String()
+    
+    class Arguments:
+        user_id = graphene.Int(required=True, description="User ID")
+    
+    @login_required
+    async def mutate(self, info, *args, **kwargs):
+        from app.manager import MeetingManager
+        # check if user already exists
+        user = await models.User.filter(id=kwargs.get("user_id")).first()
+        
+        if not user:
+            return CreateUserCredentialsMutation(success=False, message="User does not exist")
+    
+        created = await MeetingManager().create_user_credentials(user)
+        
+        if not created:
+            return CreateUserCredentialsMutation(success=False, message="User credentials not created")
+        
+        return CreateUserCredentialsMutation(success=True, message="User credentials created successfully")
+
+
+class SyncUsersMutation(graphene.Mutation):
+    success = graphene.Boolean()
+    message = graphene.String()
+    
+    @login_required
+    async def mutate(self, info, *args, **kwargs):
+        from app.manager import MeetingManager
+        # check if user already exists
+        sync = await MeetingManager().sync_users()
+        if not sync:
+            return SyncUsersMutation(success=False, message="Users not synced")
+        
+        return SyncUsersMutation(success=True, message="Users synced successfully")
+    
+    
+
 class Subscription(graphene.ObjectType):
     count = graphene.Int(upto=graphene.Int())
 
@@ -1180,3 +1221,6 @@ class Mutation(graphene.ObjectType):
     create_event_document = CreateEventDocumentMutation.Field()
     update_event_document = UpdateEventDocumentMutation.Field()
     delete_event_document = DeleteEventDocumentMutation.Field()
+    
+    create_user_credentials = CreateUserCredentialsMutation.Field()
+    sync_users = SyncUsersMutation.Field()

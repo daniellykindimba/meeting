@@ -72,6 +72,7 @@ async def register(request: schemas.UserRegister,
         last_name=" ".join(str(request.full_name).split(" ")[3:]),
         email=request.email,
         username=request.email,
+        phone=request.phone,
         salt_key=salt_key.decode("utf-8"),
         hash_password=hashed.decode("utf-8"))
     return new_user

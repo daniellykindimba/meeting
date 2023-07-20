@@ -38,7 +38,13 @@ class Query(graphene.ObjectType):
 
         offset = (page - 1) * size
 
-        s = models.User.all()
+        s = models.User.filter(
+            Q(first_name__icontains=key) |
+            Q(middle_name__icontains=key) |
+            Q(last_name__icontains=key) |
+            Q(email__icontains=key) | 
+            Q(phone__icontains=key)
+        ).order_by("-created")
 
         # get total count
         total_count = await s.count()

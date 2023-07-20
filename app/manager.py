@@ -19,10 +19,9 @@ class MeetingManager:
     async def create_user_credentials(self, user):
         password = await self.generate_random_password()
         client_name = f"{user.first_name} {user.middle_name} {user.last_name}"
-        message = f"""
-        {client_name}, Welcome to the Meeting App.
-        your Credentials
-        Username:{user.email} , Password:{password}
+        message = f"""{client_name}, Welcome to the Meeting App.your Credentials
+        Username:{user.email} , 
+        Password:{password}
         """
         to = user.phone
         

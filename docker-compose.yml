@@ -22,4 +22,3 @@ services:
       - .env
     expose:
       - "8001"
-    network_mode: "host"

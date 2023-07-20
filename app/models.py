@@ -165,6 +165,11 @@ class EventDocument(MiscFields):
     title = fields.CharField(max_length=100, null=False, blank=False)
     description = fields.TextField(null=True, blank=True)
     file = fields.TextField(null=False, blank=False)
+    author = fields.ForeignKeyField('models.User',
+                                    related_name="event_documents",
+                                    null=True,
+                                    blank=True,
+                                    on_delete=fields.SET_NULL)
 
     class PydanticMeta:
         pass

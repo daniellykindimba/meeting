@@ -653,7 +653,32 @@ class Query(graphene.ObjectType):
             has_prev=False,
             results=events,
         )
-            
+           
+    
+    
+    my_documents = graphene.Field(
+        EventDocumentPaginatedObject
+    )
+    
+    @login_required
+    async def resolve_my_documents(self, info, *args, **kwargs):
+        # get all events where current user is an attendee
+        events_attendee = await models.EventAttendee.filter(
+            attendee_id=info.context['request'].user.id).all()
+        
+        events_ids = [e.event_id for e in events_attendee] + [e.id for e in await Event.filter(author_id=info.context['request'].user.id)]
+        
+        # get all events documents order by created 
+        documents = await models.EventDocument.filter(
+            event_id__in=events_ids).order_by("-created").all()
+        
+        return EventDocumentPaginatedObject(
+            total=len(documents),
+            page=1,
+            pages=1,
+            has_next=False,
+            has_prev=False,
+            results=documents)
         
     
     

@@ -137,6 +137,7 @@ class EventDocumentObject(MiscFieldObject):
     title = graphene.String()
     description = graphene.String()
     file = graphene.String()
+    author = graphene.Field(UserObject)
 
     async def resolve_file(self, info, **kwargs):
         return f"{settings.MINIO_SERVER}{self.file}"

@@ -1061,6 +1061,7 @@ class CreateEventDocumentMutation(graphene.Mutation):
             title=kwargs.get("title"),
             description=kwargs.get("description"),
             file=kwargs.get("file"),
+            author_id=info.context['request'].user.id
         )
 
         return CreateEventDocumentMutation(

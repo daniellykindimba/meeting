@@ -579,3 +579,83 @@ class Query(graphene.ObjectType):
             has_prev=page > 1,
             results=await s.offset(offset).limit(size).all(),
         )
+    
+    
+    timeline = graphene.Field(
+        TimelinePaginatedObject,
+        fetch_date=graphene.String(required=True),
+        mode=graphene.String(required=True),
+    )
+    
+    @login_required
+    async def resolve_timeline(self, info, *args, **kwargs):
+        print("=======kwargs: ", kwargs)
+        fetch_date = pendulum.parse(kwargs.get("fetch_date"), strict=False)
+        
+        event_attendees = await models.EventAttendee.filter(attendee_id=info.context["request"].user.id).all()
+        
+        # get list of event ids
+        events_ids = [e.event_id for e in event_attendees]
+        
+        # get all events created by user
+        event_author = await models.Event.filter(author_id=info.context["request"].user.id,start_time__year=fetch_date.year, start_time__month=fetch_date.month).all()
+        
+        # get list of event ids
+        events_author_ids = [e.id for e in event_author]
+        
+        # combine both lists
+        events_ids = events_ids + events_author_ids
+        
+        # get all events
+        events = await models.Event.filter(id__in=events_ids, start_time__year=fetch_date.year, start_time__month=fetch_date.month).all()
+        
+        datas = []
+        
+        for event in events:
+            datas.append({
+                "type": "success",
+                "content": event.title,
+                "description": event.description,
+                "id": event.id,
+                "date": event.start_time.strftime("%Y-%m-%d %H:%M:%S")
+            })
+        
+        return TimelinePaginatedObject(
+            data=datas)
+    
+    
+    my_todays_events = graphene.Field(
+        EventPaginatedObject
+    )
+    
+    @login_required
+    async def resolve_my_todays_events(self, info, *args, **kwargs):
+        # get all events where current user is an attendee
+        events = [e.event_id for e in await models.EventAttendee.filter(
+            attendee_id=info.context['request'].user.id)] + [e.id for e in await Event.filter(
+                author_id=info.context['request'].user.id)]
+        
+        # filter unique events
+        events = list(set(events))
+        
+        # get all events order by start time
+        events = await models.Event.filter(
+            id__in=events).order_by("start_time").all()
+        
+        # only 4
+        events = events[:4]
+        
+        return EventPaginatedObject(
+            total=len(events),
+            page=1,
+            pages=1,
+            has_next=False,
+            has_prev=False,
+            results=events,
+        )
+            
+        
+    
+    
+    
+    

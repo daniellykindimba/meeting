@@ -2,4 +2,4 @@ import os
 from pathlib import Path
 
 
-MINIO_SERVER = "http://192.168.0.103:8483/"
+MINIO_SERVER = "http://192.168.2.40:8483/"

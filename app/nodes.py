@@ -10,6 +10,10 @@ class DataObject(graphene.ObjectType):
     data = JSON()
 
 
+class TimelinePaginatedObject(graphene.ObjectType):
+    data = JSON()
+
+
 
 class MiscFieldObject(graphene.ObjectType):
     id = graphene.Int()

@@ -1,5 +1,5 @@
 
-DATABASE_URL = "postgres://meeting:meeting100@192.168.1.55:5432/meeting"
+DATABASE_URL = "postgres://meeting:meeting100@172.18.0.1:5432/meeting"
 
 
 TORTOISE_ORM = {

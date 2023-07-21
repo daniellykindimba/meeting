@@ -25,3 +25,5 @@ RUN chmod 766 /etc/passwd
 # ENTRYPOINT ./entrypoint.sh
 # add app
 COPY . .
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8493"]

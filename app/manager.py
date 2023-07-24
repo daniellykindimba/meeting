@@ -1,6 +1,6 @@
 from services.sms import SMS
 from app.validators.phone_validator import PhoneValidator
-from app.models import User
+from app.models import User, UserOTP
 import random
 import string
 import bcrypt
@@ -15,6 +15,52 @@ class MeetingManager:
     async def generate_random_password(self, n=6):
         password = ''.join(random.choices(string.ascii_uppercase + string.digits, k = n))
         return password
+
+
+    async def generate_random_token(self, n=6):
+        # generate numeric token
+        token = ''.join(random.choices(string.digits, k = n))
+        return token
+
+    async def send_user_recovery_token(self, user):
+        token = await self.generate_random_token()
+        # created user otp token 
+        await UserOTP.create(
+            user_id=user.id,
+            token=token,
+            is_used=False,
+            phone=user.phone
+        )
+        
+        message = f"Please use this token to recover your Meeting App account Password: {token}"
+        
+        validate_phone = PhoneValidator(user.phone)
+        if validate_phone.validate():
+            sms = SMS()
+            to = validate_phone.international_format()
+            await sms.send(to, message, user.full_name())
+        return True
+
+    async def change_user_password(self, user, password):
+        # update user password
+        salt_key = bcrypt.gensalt()
+        hashed = bcrypt.hashpw(password.encode("utf-8"), salt_key)
+        updated = await User.filter(id=user.id).update(hash_password=hashed.decode("utf-8"), salt_key=salt_key.decode("utf-8"))
+        if updated:
+            # create sms message 
+            try:
+                message = f"Your Meeting App account password has been changed successfully"
+                valid_phone = PhoneValidator(user.phone)
+                if valid_phone.validate():
+                    sms = SMS()
+                    to = valid_phone.international_format()
+                    await sms.send(to, message, user.full_name())
+            except:
+                pass
+        
+            return True
+        return False
+            
     
     async def create_user_credentials(self, user):
         password = await self.generate_random_password()

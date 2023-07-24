@@ -10,6 +10,7 @@ from tortoise.queryset import (
 from app.middlewares.authentication import login_required
 from app.validators.phone_validator import PhoneValidator
 from graphene_file_upload.scalars import Upload
+from app.manager import MeetingManager
 import pendulum
 
 
@@ -1355,6 +1356,108 @@ class DeleteCommitteeMemberMutation(graphene.Mutation):
         return DeleteCommitteeMemberMutation(success=True, message="Committee Member deleted successfully")
 
 
+
+class ForgotPasswordMutation(graphene.Mutation):
+    success = graphene.Boolean()
+    message = graphene.String()
+    
+    class Arguments:
+        email = graphene.String(required=True, description="User Email")
+    
+    async def mutate(self, info, *args, **kwargs):
+        # sanitize email
+        email = kwargs.get("email").strip().lower()
+        
+        # check if user already exists
+        if not await models.User.filter(email__iexact=email).exists():
+            return ForgotPasswordMutation(success=False, message=f"User with email {email} does not exist")
+        
+        # get user 
+        user = await models.User.filter(email__iexact=email).first()
+        
+        # check if user has a phone number
+        if not user.phone:
+            return ForgotPasswordMutation(success=False, message=f"User with email {email} does not have a phone number, please contact System Administrator for assistance")
+        
+        sent = await MeetingManager().send_user_recovery_token(user)
+        
+        if sent:
+            return ForgotPasswordMutation(success=True, message=f"Recovery token sent to {user.phone}")
+        
+        return ForgotPasswordMutation(success=False, message=f"Recovery token not sent")
+        
+
+
+class VerifyOtpMutation(graphene.Mutation):
+    success = graphene.Boolean()
+    message = graphene.String()
+    
+    class Arguments:
+        email = graphene.String(required=True, description="User Email")
+        otp = graphene.String(required=True, description="OTP")
+    
+    async def mutate(self, info, *args, **kwargs):
+        # sanitize email 
+        email = kwargs.get("email").strip().lower()
+        # check if user already exists
+        if not models.User.filter(email__iexact=email).exists():
+            return VerifyOtpMutation(success=False, message=f"User with email {email} does not exist")
+        
+        user = await models.User.filter(email__iexact=email).first()
+        
+        # sanitize otp 
+        otp = kwargs.get("otp").strip()
+        # check if user otp is valid 
+        user_otp = await models.UserOTP.filter(user_id=user.id, token=otp, is_used=False).first()
+        
+        if not user_otp:
+            return VerifyOtpMutation(success=False, message=f"Invalid OTP or OTP already used")
+        
+        return VerifyOtpMutation(success=True, message=f"OTP verified successfully")
+
+
+class UserChangePasswordMutation(graphene.Mutation):
+    success = graphene.Boolean()
+    message = graphene.String()
+    
+    class Arguments:
+        email = graphene.String(required=True, description="User Email")
+        otp = graphene.String(required=True, description="OTP")
+        password = graphene.String(required=True, description="New Password")
+        confirm_password = graphene.String(required=True, description="Confirm Password")
+    
+    async def mutate(self, info, *args, **kwargs):
+        print(kwargs)
+        
+        # sanitize email
+        email = kwargs.get("email").strip().lower()
+        
+        # check if user exists by email 
+        if not models.User.filter(email__iexact=email).exists():
+            return UserChangePasswordMutation(success=False, message=f"User with email {email} does not exist")
+        
+        user = await models.User.filter(email__iexact=email).first()
+        
+        # check if user otp is valid and not used 
+        user_otp = await models.UserOTP.filter(user_id=user.id, token=kwargs.get("otp"), is_used=False).first()
+        
+        if not user_otp:
+            return UserChangePasswordMutation(success=False, message=f"Invalid OTP or OTP already used")
+        
+        # check if password and confirm password match
+        if kwargs.get("password") != kwargs.get("confirm_password"):
+            return UserChangePasswordMutation(success=False, message=f"Password and Confirm Password do not match")
+        
+        changed = await MeetingManager().change_user_password(user, kwargs.get("password"))
+        
+        if not changed:
+            return UserChangePasswordMutation(success=False, message=f"Password not changed")
+        
+        
+        # update user otp to used
+        await models.UserOTP.filter(user_id=user.id, token=kwargs.get("otp")).update(is_used=True)
+        
+        return UserChangePasswordMutation(success=True, message=f"Password changed successfully")
         
 
 
@@ -1368,6 +1471,7 @@ class Subscription(graphene.ObjectType):
         #     yield i
         #     await asyncio.sleep(1)
         pass
+
 
 
 class Mutation(graphene.ObjectType):
@@ -1423,3 +1527,7 @@ class Mutation(graphene.ObjectType):
     
     add_committee_member = AddCommitteeMemberMutation.Field()
     delete_committee_member = DeleteCommitteeMemberMutation.Field()
+    
+    forgot_password = ForgotPasswordMutation.Field()
+    verify_otp = VerifyOtpMutation.Field()
+    user_change_password = UserChangePasswordMutation.Field()

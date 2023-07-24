@@ -49,7 +49,7 @@ class User(MiscFields):
     avatar = fields.CharField(max_length=100, null=True, blank=True)
 
     def full_name(self) -> str:
-        return f"{self.fist_name} {self.middle_name} {self.last_name}".strip()
+        return f"{self.first_name} {self.middle_name} {self.last_name}".strip()
 
     class PydanticMeta:
         computed = ["full_name"]
@@ -61,6 +61,16 @@ UserIn_Pydantic = pydantic_model_creator(User,
                                          name="UserIn",
                                          exclude_readonly=True)
 
+
+
+class UserOTP(MiscFields):
+    id = fields.IntField(pk=True)
+    user = fields.ForeignKeyField('models.User',
+                                  related_name="user_otps",
+                                  on_dlete=fields.CASCADE)
+    token = fields.CharField(max_length=100, null=False, blank=False)
+    phone = fields.CharField(max_length=100, null=True, blank=True)
+    is_used = fields.BooleanField(default=False)
 
 
 class UserDepartment(MiscFields):

@@ -24,6 +24,15 @@ class Department(MiscFields):
         pass
 
 
+class Committee(MiscFields):
+    id = fields.IntField(pk=True)
+    name = fields.CharField(max_length=100, null=False, blank=False)
+    description = fields.TextField(null=True, blank=True)
+    
+    class PydanticMeta:
+        pass
+
+
 class User(MiscFields):
     id = fields.IntField(pk=True)
     first_name = fields.CharField(max_length=100, null=False, blank=False)
@@ -62,6 +71,21 @@ class UserDepartment(MiscFields):
     department = fields.ForeignKeyField('models.Department',
                                         related_name="user_departments",
                                         on_delete=fields.CASCADE)
+
+    class PydanticMeta:
+        pass
+
+
+
+class UserCommittee(MiscFields):
+    id = fields.IntField(pk=True)
+    committee = fields.ForeignKeyField('models.Committee',
+                                      related_name="user_committees",
+                                      on_delete=fields.CASCADE)
+    user = fields.ForeignKeyField('models.User',
+                                  related_name="user_committees",
+                                  on_delete=fields.CASCADE)
+
 
     class PydanticMeta:
         pass
@@ -170,6 +194,19 @@ class EventDocument(MiscFields):
                                     null=True,
                                     blank=True,
                                     on_delete=fields.SET_NULL)
+
+    class PydanticMeta:
+        pass
+
+
+class EventCommittee(MiscFields):
+    id = fields.IntField(pk=True)
+    event = fields.ForeignKeyField('models.Event',
+                                   related_name="event_committees",
+                                   on_delete=fields.CASCADE)
+    committee = fields.ForeignKeyField('models.Committee',
+                                       related_name="event_committees",
+                                       on_delete=fields.CASCADE)
 
     class PydanticMeta:
         pass

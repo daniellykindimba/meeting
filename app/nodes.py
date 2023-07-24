@@ -148,3 +148,21 @@ class EventDocumentPaginatedObject(MiscPaginatedObject):
 
 
 
+
+class CommitteeObject(MiscFieldObject):
+    name = graphene.String()
+    description = graphene.String()
+
+
+class CommitteePaginatedObject(MiscPaginatedObject):
+    results = graphene.List(CommitteeObject)
+
+
+class userCommitteeObject(MiscFieldObject):
+    user = graphene.Field(UserObject)
+    committee = graphene.Field(CommitteeObject)
+
+
+class userCommitteePaginatedObject(MiscPaginatedObject):
+    results = graphene.List(userCommitteeObject)
+

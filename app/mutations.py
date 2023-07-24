@@ -565,9 +565,12 @@ class CreateEventMutation(graphene.Mutation):
         start_time = graphene.String()
         end_time = graphene.String()
         venue_id = graphene.Int()
+        departments = graphene.List(graphene.Int, required=False)
+        committees = graphene.List(graphene.Int, required=False)
 
     @login_required
     async def mutate(self, info, *args, **kwargs):
+        print(kwargs)
         # check if venue  exists
         venue = await models.Venue.filter(id=kwargs.get("venue_id")).first()
 
@@ -594,6 +597,54 @@ class CreateEventMutation(graphene.Mutation):
             )
 
         event = await models.Event.create(**kwargs)
+        
+        for department in kwargs.get("departments", []):
+            if not await models.EventDepartment.filter(
+                department_id=department, event_id=event.id
+            ).first():
+                await models.EventDepartment.create(
+                    event_id=event.id, department_id=department
+                )
+            
+            # get all department users
+            department_users = await models.UserDepartment.filter(
+                department_id=department
+            )
+            
+            # adding department users to event as attendees
+            for department_user in department_users:
+                # check if user is already an attendee
+                if not await models.EventAttendee.filter(
+                    attendee_id=department_user.user_id, event_id=event.id
+                ).first():
+                    await models.EventAttendee.create(
+                        event_id=event.id, attendee_id=department_user.user_id
+                    )
+            
+        
+        
+        for committee in kwargs.get("committees", []):
+            if not await models.EventCommittee.filter(
+                committee_id=committee, event_id=event.id
+            ).first():
+                await models.EventCommittee.create(
+                    event_id=event.id, committee_id=committee
+                )
+            
+            # get all committee users
+            committee_users = await models.UserCommittee.filter(
+                committee_id=committee
+            )
+            
+            for committee_user in committee_users:
+                # check if user is already an attendee
+                if not await models.EventAttendee.filter(
+                    attendee_id=committee_user.user_id, event_id=event.id
+                ).first():
+                    await models.EventAttendee.create(
+                        event_id=event.id, attendee_id=committee_user.user_id
+                    )
+
 
         return CreateEventMutation(
             success=True, message="Event created successfully", event=event
@@ -1167,7 +1218,146 @@ class SyncUsersMutation(graphene.Mutation):
             return SyncUsersMutation(success=False, message="Users not synced")
         
         return SyncUsersMutation(success=True, message="Users synced successfully")
+
+
+
+class CreateCommitteeMutation(graphene.Mutation):
+    success = graphene.Boolean()
+    message = graphene.String()
+    committee = graphene.Field(CommitteeObject)
     
+    class Arguments:
+        name = graphene.String(required=True, description="Committee Name")
+        description = graphene.String(required=True, description="Committee Description")
+    
+    
+    @login_required
+    async def mutate(self, info, *args, **kwargs):
+        # check if committee already exists
+        committee = await models.Committee.filter(name__iexact=kwargs.get("name")).first()
+        if committee:
+            return CreateCommitteeMutation(success=False, message="Committee already exists")
+        committee = await models.Committee.create(**kwargs)
+        return CreateCommitteeMutation(
+            success=True, message="Committee created successfully", committee=committee
+        )
+
+
+class UpdateCommitteeMutation(graphene.Mutation):
+    success = graphene.Boolean()
+    message = graphene.String()
+    committee = graphene.Field(CommitteeObject)
+    
+    class Arguments:
+        id = graphene.Int(required=True, description="Committee ID")
+        name = graphene.String(required=True, description="Committee Name")
+        description = graphene.String(required=True, description="Committee Description")
+    
+    @login_required
+    async def mutate(self, info, *args, **kwargs):
+        # check if committee already exists
+        committee = await models.Committee.filter(id=kwargs.get("id")).first()
+        if not committee:
+            return UpdateCommitteeMutation(success=False, message="Committee does not exist")
+        
+        
+        # check if name is already taken  excluding the current committee
+        if await models.Committee.filter(name__iexact=kwargs.get("name")).exclude(id=kwargs.get("id")).exists():
+            return UpdateCommitteeMutation(success=False, message="Committee name already taken")
+        
+        committee = await models.Committee.filter(id=kwargs.get("id")).update(**kwargs)
+        return UpdateCommitteeMutation(
+            success=True, message="Committee updated successfully", committee=committee
+        )
+
+
+class DeleteCommitteeMutation(graphene.Mutation):
+    success = graphene.Boolean()
+    message = graphene.String()
+    
+    class Arguments:
+        id = graphene.Int(required=True, description="Committee ID")
+    
+    @login_required
+    async def mutate(self, info, *args, **kwargs):
+        # check if committee already exists
+        committee = await models.Committee.filter(id=kwargs.get("id")).first()
+        if not committee:
+            return DeleteCommitteeMutation(success=False, message="Committee does not exist")
+        committee = await models.Committee.filter(id=kwargs.get("id")).delete()
+        return DeleteCommitteeMutation(success=True, message="Committee deleted successfully")
+
+
+class BlockUnblockCommitteeMutation(graphene.Mutation):
+    success = graphene.Boolean()
+    message = graphene.String()
+    committee = graphene.Field(CommitteeObject)
+    
+    class Arguments:
+        id = graphene.Int(required=True, description="Committee ID")
+        block = graphene.Boolean(required=True, description="Block Committee")
+    
+    @login_required
+    async def mutate(self, info, *args, **kwargs):
+        # check if committee already exists
+        committee = await models.Committee.filter(id=kwargs.get("id")).first()
+        if not committee:
+            return BlockUnblockCommitteeMutation(success=False, message="Committee does not exist")
+        committee = await models.Committee.filter(id=kwargs.get("id")).update(is_active=kwargs.get("block"))
+        return BlockUnblockCommitteeMutation(success=True, message="Committee blocked successfully", committee=committee)
+
+
+
+class AddCommitteeMemberMutation(graphene.Mutation):
+    success = graphene.Boolean()
+    message = graphene.String()
+    committee_member = graphene.Field(userCommitteeObject)
+    
+    class Arguments:
+        committee_id = graphene.Int(required=True, description="Committee ID")
+        user_id = graphene.Int(required=True, description="User ID")
+    
+    
+    @login_required
+    async def mutate(self, info, *args, **kwargs):
+        # check if committee already exists
+        if not await models.Committee.filter(id=kwargs.get("committee_id")).exists():
+            return AddCommitteeMemberMutation(success=False, message="Committee does not exist")
+        
+        # check if user already exists
+        if not await models.User.filter(id=kwargs.get("user_id")).exists():
+            return AddCommitteeMemberMutation(success=False, message="User does not exist")
+        
+        # check if committee member already exists
+        if await models.UserCommittee.filter(committee_id=kwargs.get("committee_id"), user_id=kwargs.get("user_id")).exists():
+            return AddCommitteeMemberMutation(success=False, message="Committee Member already exists")
+        
+        user_committee = await models.UserCommittee.create(committee_id=kwargs.get("committee_id"), user_id=kwargs.get("user_id"))
+        
+        return AddCommitteeMemberMutation(
+            success=True, message="Committee Member created successfully", committee_member=user_committee)
+    
+class DeleteCommitteeMemberMutation(graphene.Mutation):
+    success = graphene.Boolean()
+    message = graphene.String()
+    
+    class Arguments:
+        id = graphene.Int(required=True, description="Committee Member ID")
+    
+    @login_required
+    async def mutate(self, info, *args, **kwargs):
+        # check if committee member already exists
+        if not await models.UserCommittee.filter(id=kwargs.get("id")).exists():
+            return DeleteCommitteeMemberMutation(success=False, message="Committee Member does not exist")
+        
+        user_committee = await models.UserCommittee.filter(id=kwargs.get("id")).delete()
+        
+        return DeleteCommitteeMemberMutation(success=True, message="Committee Member deleted successfully")
+
+
+        
+
+
     
 
 class Subscription(graphene.ObjectType):
@@ -1225,3 +1415,11 @@ class Mutation(graphene.ObjectType):
     
     create_user_credentials = CreateUserCredentialsMutation.Field()
     sync_users = SyncUsersMutation.Field()
+    
+    create_committee = CreateCommitteeMutation.Field()
+    update_committee = UpdateCommitteeMutation.Field()
+    delete_committee = DeleteCommitteeMutation.Field()
+    block_unblock_committee = BlockUnblockCommitteeMutation.Field()
+    
+    add_committee_member = AddCommitteeMemberMutation.Field()
+    delete_committee_member = DeleteCommitteeMemberMutation.Field()

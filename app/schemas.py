@@ -19,6 +19,21 @@ class Query(graphene.ObjectType):
     @login_required
     async def resolve_me(self, info, **kwargs):
         return await models.User.get(id=info.context["request"].user.id)
+    
+    analytics = graphene.Field(DataObject)
+    
+    @login_required
+    async def resolve_analytics(self, info, *args, **kwargs):
+        return DataObject(
+            data={
+                "total_users": await models.User.all().count(),
+                "total_events": await models.Event.all().count(),
+                "total_departments": await models.Department.all().count(),
+                "total_committees": await models.Committee.all().count(),
+                "total_venues": await models.Venue.all().count(),
+            }
+        )
+
 
     users = graphene.Field(
         UserPaginatedObject,
@@ -390,9 +405,20 @@ class Query(graphene.ObjectType):
         if len(department_users) > 0:
             s = models.User.filter(
                 id__in=[e.user_id for e in department_users]
+            ).filter(
+                Q(first_name__icontains=key) |
+                Q(middle_name__icontains=key) | 
+                Q(last_name__icontains=key) |
+                Q(email__icontains=key) |
+                Q(phone__icontains=key)
             ).all()
         else:
-            s = models.User.filter(~Q(id__in=event_attendees_ids)).all()
+            s = models.User.filter(~Q(id__in=event_attendees_ids)).filter(
+                Q(first_name__icontains=key) |
+                Q(middle_name__icontains=key) | 
+                Q(last_name__icontains=key) |
+                Q(email__icontains=key) |
+                Q(phone__icontains=key)).all()
 
         # get total count
         total_count = await s.count()
@@ -444,7 +470,12 @@ class Query(graphene.ObjectType):
 
         s = models.User.filter(
             Q(id__in=department_users_ids) & ~Q(id__in=event_attendees_ids)
-        ).all()
+        ).filter(
+             Q(first_name__icontains=key) |
+                Q(middle_name__icontains=key) | 
+                Q(last_name__icontains=key) |
+                Q(email__icontains=key) |
+                Q(phone__icontains=key)).all()
 
         # get total count
         total_count = await s.count()
@@ -679,6 +710,129 @@ class Query(graphene.ObjectType):
             has_next=False,
             has_prev=False,
             results=documents)
+    
+    
+    committees = graphene.Field(
+        CommitteePaginatedObject,
+        key=graphene.String(required=False),
+        sort=graphene.String(required=False),
+        where=graphene.JSONString(required=False),
+        page=graphene.Int(required=False),
+        page_size=graphene.Int(required=False),
+    )
+    
+    committee = graphene.Field(CommitteeObject, id=graphene.Int(required=True))
+    
+    
+    @login_required
+    async def resolve_committees(self, info, **kwargs):
+        key = kwargs.get("key") if kwargs.get("key") else ""
+        page = kwargs.get("page") if kwargs.get("page") else 1
+        size = kwargs.get("page_size") if kwargs.get("page_size") else 25
+
+        offset = (page - 1) * size
+        
+        s = models.Committee.filter(
+            Q(name__icontains=key) |
+            Q(description__icontains=key)
+        ).order_by("-created")
+        
+        total_count = await s.count()
+        
+        return CommitteePaginatedObject(
+            total=total_count,
+            page=page,
+            pages=total_count // size,
+            has_next=total_count > offset + size,
+            has_prev=page > 1,
+            results=await s.offset(offset).limit(size).all(),
+        )
+    
+    
+    committee_members = graphene.Field(
+        userCommitteePaginatedObject,
+        id=graphene.Int(required=True, description="Committee ID"),
+        key=graphene.String(required=False),
+        sort=graphene.String(required=False),
+        where=graphene.JSONString(required=False),
+        page=graphene.Int(required=False),
+        page_size=graphene.Int(required=False),
+    )
+    
+    @login_required
+    async def resolve_committee_members(self, info, *args, **kwargs):
+        key = kwargs.get("key") if kwargs.get("key") else ""
+        page = kwargs.get("page") if kwargs.get("page") else 1
+        size = kwargs.get("page_size") if kwargs.get("page_size") else 25
+
+        offset = (page - 1) * size
+        
+        s = models.UserCommittee.filter(
+            committee_id=kwargs.get("id")
+        ).order_by("-created")
+        
+        total_count = await s.count()
+        
+        return userCommitteePaginatedObject(
+            total=total_count,
+            page=page,
+            pages=total_count // size,
+            has_next=total_count > offset + size,
+            has_prev=page > 1,
+            results=await s.offset(offset).limit(size).all(),
+        )
+    
+    committee_member = graphene.Field(userCommitteeObject, id=graphene.Int(required=True))
+    
+    @login_required
+    async def resolve_committee_member(self, info, *args, **kwargs):
+        return await models.UserCommittee.get(id=kwargs.get("id"))
+
+
+    not_committee_members = graphene.Field(
+        UserPaginatedObject,
+        id=graphene.Int(required=True, description="Committee ID"),
+        key=graphene.String(required=False),
+        sort=graphene.String(required=False),
+        where=graphene.JSONString(required=False),
+        page=graphene.Int(required=False),
+        page_size=graphene.Int(required=False),
+    )
+    
+    @login_required
+    async def resolve_not_committee_members(self, info, *args, **kwargs):
+        key = kwargs.get("key") if kwargs.get("key") else ""
+        page = kwargs.get("page") if kwargs.get("page") else 1
+        size = kwargs.get("page_size") if kwargs.get("page_size") else 25
+
+        offset = (page - 1) * size
+        
+        committee = await models.Committee.get(id=kwargs.get("id"))
+        
+        # get all committee members
+        committee_members = [u.user_id for u in await models.UserCommittee.filter(committee_id=committee.id).all()]
+        
+        s = models.User.filter(
+            ~Q(id__in=committee_members)
+        ).filter(
+            Q(first_name__icontains=key) |
+            Q(middle_name__icontains=key) |
+            Q(last_name__icontains=key) |
+            Q(email__icontains=key) |
+            Q(phone__icontains=key)
+        ).order_by("-created")
+        
+        total_count = await s.count()
+        
+        return UserPaginatedObject(
+             total=total_count,
+            page=page,
+            pages=total_count // size,
+            has_next=total_count > offset + size,
+            has_prev=page > 1,
+            results=await s.offset(offset).limit(size).all(),
+        )
+            
         
     
     

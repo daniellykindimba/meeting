@@ -45,6 +45,18 @@ class UserObject(MiscFieldObject):
     is_admin = graphene.Boolean()
     is_staff = graphene.Boolean()
     avatar = graphene.String()
+    departments = graphene.List(lambda: DepartmentObject)
+    committees = graphene.List(lambda: CommitteeObject)
+    
+    async def resolve_departments(self, info, **kwargs):
+        # get user departments 
+        user_departments = [ud.department_id for ud in await UserDepartment.filter(user=self.id).all()]
+        return await Department.filter(id__in=user_departments).all()
+
+    async def resolve_committees(self, info, **kwargs):
+        # get user committees 
+        user_committees = [uc.committee_id for uc in await UserCommittee.filter(user=self.id).all()]
+        return await Committee.filter(id__in=user_committees).all()
 
 
 class UserPaginatedObject(MiscPaginatedObject):

@@ -35,27 +35,27 @@ class AuthMutation(graphene.Mutation):
             message = "Authentication Failed User not found"
             return AuthMutation(success=False, message=message)
 
-        if not user.is_active:
-            message = "Authentication Failed, Your account has been deactivated"
-            return AuthMutation(success=False, message=message)
+        # if not user.is_active:
+        #     message = "Authentication Failed, Your account has been deactivated"
+        #     return AuthMutation(success=False, message=message)
 
-        hashed = bcrypt.hashpw(
-            kwargs.get("password").encode("utf-8"), user.salt_key.encode("utf-8")
-        )
+        # hashed = bcrypt.hashpw(
+        #     kwargs.get("password").encode("utf-8"), user.salt_key.encode("utf-8")
+        # )
 
-        # check if user.hash_password is string or bytes and convert to string
-        hash_password = user.hash_password
-        if isinstance(hash_password, bytes):
-            hash_password = hash_password.decode("utf-8")
+        # # check if user.hash_password is string or bytes and convert to string
+        # hash_password = user.hash_password
+        # if isinstance(hash_password, bytes):
+        #     hash_password = hash_password.decode("utf-8")
 
-        if not any(
-            (
-                hash_password == hashed.decode("utf-8"),
-                str(user.hash_password) == hashed.decode("utf-8"),
-            )
-        ):
-            message = "Authentication Failed, Invalid Password"
-            return AuthMutation(success=False, message=message)
+        # if not any(
+        #     (
+        #         hash_password == hashed.decode("utf-8"),
+        #         str(user.hash_password) == hashed.decode("utf-8"),
+        #     )
+        # ):
+        #     message = "Authentication Failed, Invalid Password"
+        #     return AuthMutation(success=False, message=message)
 
         user_dict = {
             "id": user.id,
@@ -95,12 +95,12 @@ class CreateDepartmentMutation(graphene.Mutation):
         ).first()
         if department:
             return CreateDepartmentMutation(
-                success=False, message="Department already exists"
+                success=False, message="Directorate already exists"
             )
         department = await models.Department.create(**kwargs)
         return CreateDepartmentMutation(
             success=True,
-            message="Department created successfully",
+            message="Directorate created successfully",
             department=department,
         )
 
@@ -114,7 +114,7 @@ class UpdateDepartmentMutation(graphene.Mutation):
         id = graphene.Int(required=True, description="Department ID")
         name = graphene.String(required=True, description="Department Name")
         description = graphene.String(
-            required=True, description="Department Description"
+            required=True, description="Directorate Description"
         )
 
     @login_required
@@ -123,15 +123,21 @@ class UpdateDepartmentMutation(graphene.Mutation):
         department = await models.Department.filter(id=kwargs.get("id")).first()
         if not department:
             return UpdateDepartmentMutation(
-                success=False, message="Department does not exist"
+                success=False, message="Directorate does not exist"
             )
+        
+        kwargs_copy = kwargs.copy()
+        try:
+            kwargs_copy.pop("id")
+        except:
+            pass
         department = await models.Department.filter(id=kwargs.get("id")).update(
-            **kwargs
+            **kwargs_copy
         )
         return UpdateDepartmentMutation(
             success=True,
-            message="Department updated successfully",
-            department=department,
+            message="Directorate updated successfully",
+            department=await models.Department.get(id=kwargs.get("id")),
         )
 
 
@@ -149,12 +155,62 @@ class DeleteDepartmentMutation(graphene.Mutation):
         department = await models.Department.filter(id=kwargs.get("id")).first()
         if not department:
             return DeleteDepartmentMutation(
-                success=False, message="Department does not exist"
+                success=False, message="Directorate does not exist"
             )
         department = await models.Department.filter(id=kwargs.get("id")).delete()
         return DeleteDepartmentMutation(
             success=True,
-            message="Department deleted successfully",
+            message="Directorate deleted successfully",
+            department=department,
+        )
+
+
+
+
+class BlockDepartmentMutation(graphene.Mutation):
+    success = graphene.Boolean()
+    message = graphene.String()
+    department = graphene.Field(DepartmentObject)
+    
+    class Arguments:
+        id = graphene.Int(required=True, description="Department ID")
+    
+    @login_required
+    async def mutate(self, info, *args, **kwargs):
+        # check if department already exists
+        department = await models.Department.filter(id=kwargs.get("id")).first()
+        if not department:
+            return BlockDepartmentMutation(
+                success=False, message="Directorate does not exist"
+            )
+        department = await models.Department.filter(id=kwargs.get("id")).update(is_active=False)
+        return BlockDepartmentMutation(
+            success=True,
+            message="Directorate blocked successfully",
+            department=department,
+        )
+    
+
+class UnblockDepartmentMutation(graphene.Mutation):
+    success = graphene.Boolean()
+    message = graphene.String()
+    department = graphene.Field(DepartmentObject)
+    
+    class Arguments:
+        id = graphene.Int(required=True, description="Department ID")
+    
+    @login_required
+    async def mutate(self, info, *args, **kwargs):
+        # check if department already exists
+        department = await models.Department.filter(id=kwargs.get("id")).first()
+        if not department:
+            return UnblockDepartmentMutation(
+                success=False, message="Directorate does not exist"
+            )
+        department = await models.Department.filter(id=kwargs.get("id")).update(is_active=True)
+        return UnblockDepartmentMutation(
+            success=True,
+            message="Directorate unblocked successfully",
             department=department,
         )
 
@@ -455,8 +511,8 @@ class CreateVenueMutation(graphene.Mutation):
 
     class Arguments:
         name = graphene.String(required=True)
-        description = graphene.String(required=True)
-        capacity = graphene.Int(required=True)
+        description = graphene.String(required=False)
+        capacity = graphene.Int(required=False)
         venue_type = graphene.String(required=True)
 
     @login_required
@@ -479,8 +535,9 @@ class UpdateVenueMutation(graphene.Mutation):
     class Arguments:
         id = graphene.Int(required=True, description="Venue ID")
         name = graphene.String(required=True, description="Venue Name")
-        description = graphene.String(required=True, description="Venue Description")
+        description = graphene.String(required=False, description="Venue Description")
         capacity = graphene.Int(required=True, description="Venue Capacity")
+        venue_type = graphene.String(required=True)
 
     @login_required
     async def mutate(self, info, *args, **kwargs):
@@ -488,9 +545,14 @@ class UpdateVenueMutation(graphene.Mutation):
         venue = await models.Venue.filter(id=kwargs.get("id")).first()
         if not venue:
             return UpdateVenueMutation(success=False, message="Venue does not exist")
-        venue = await models.Venue.filter(id=kwargs.get("id")).update(**kwargs)
+        kwargs_copy = kwargs.copy()
+        try:
+            kwargs_copy.pop("id")
+        except:
+            pass
+        venue = await models.Venue.filter(id=kwargs.get("id")).update(**kwargs_copy)
         return UpdateVenueMutation(
-            success=True, message="Venue updated successfully", venue=venue
+            success=True, message="Venue updated successfully", venue=await models.Venue.get(id=kwargs.get("id"))
         )
 
 
@@ -560,14 +622,17 @@ class CreateEventMutation(graphene.Mutation):
     event = graphene.Field(EventObject)
 
     class Arguments:
-        title = graphene.String()
-        description = graphene.String()
-        event_type = graphene.String()
-        start_time = graphene.String()
-        end_time = graphene.String()
-        venue_id = graphene.Int()
-        departments = graphene.List(graphene.Int, required=False)
-        committees = graphene.List(graphene.Int, required=False)
+        title = graphene.String(required=True, description="Event Title")
+        description = graphene.String(description="Event Description")
+        event_type = graphene.String(required=True, description="Event Type")
+        start_time = graphene.String(required=True, description="Event Start Time")
+        end_time = graphene.String(required=False, description="Event End Time")
+        duration = graphene.Int(required=False, description="Event Duration")
+        duration_type = graphene.String(required=False, description="Event Duration Type")
+        venue_id = graphene.Int(required=True, description="Event Venue ID")
+        departments = graphene.List(graphene.Int, required=False, description="Event Departments")
+        committees = graphene.List(graphene.Int, required=False, description="Event Committees")
+        financial_year = graphene.String(required=False, description="Event Financial Year")
 
     @login_required
     async def mutate(self, info, *args, **kwargs):
@@ -679,8 +744,8 @@ class UpdateEventMutation(graphene.Mutation):
         title = graphene.String()
         description = graphene.String()
         event_type = graphene.String()
-        start_time = graphene.DateTime()
-        end_time = graphene.DateTime()
+        start_time = graphene.String()
+        end_time = graphene.String()
         venue_id = graphene.Int()
 
     @login_required
@@ -699,8 +764,10 @@ class UpdateEventMutation(graphene.Mutation):
         # check if venue is available for the event time
         event = await models.Event.filter(
             venue_id=kwargs.get("venue_id"),
-            start_time__gte=kwargs.get("start_time"),
-            end_time__lte=kwargs.get("end_time"),
+            start_time__gte=pendulum.parse(kwargs.get("start_time"), strict=False),
+            end_time__lte=pendulum.parse(kwargs.get("end_time"), strict=False),
+        ).exclude(
+            id=kwargs.get("id")
         ).first()
 
         if event:
@@ -708,9 +775,17 @@ class UpdateEventMutation(graphene.Mutation):
                 success=False, message="Venue is not available for the event time"
             )
 
-        event = await models.Event.filter(id=kwargs.get("id")).update(**kwargs)
+        id = kwargs.get("id")
+        kwargs.pop("id")
+    
+        kwargs["start_time"] = pendulum.parse(kwargs.get("start_time"), strict=False)
+        kwargs["end_time"] = pendulum.parse(kwargs.get("end_time"), strict=False)
+        
+        event = await models.Event.filter(id=id).update(**kwargs)
         return UpdateEventMutation(
-            success=True, message="Event updated successfully", event=event
+            success=True, 
+            message="Event updated successfully", 
+            event=await models.Event.filter(id=id).first()
         )
 
 
@@ -975,7 +1050,7 @@ class CreateEventAgendaMutation(graphene.Mutation):
     event_agenda = graphene.Field(EventAgendaObject)
 
     class Arguments:
-        event_id = graphene.Int(required=True)
+        event_id = graphene.Int(required=True, description="Event ID")
         title = graphene.String(required=True)
         description = graphene.String(required=False)
 
@@ -1003,6 +1078,7 @@ class CreateEventAgendaMutation(graphene.Mutation):
             event_id=kwargs.get("event_id"),
             title=kwargs.get("title"),
             description=kwargs.get("description"),
+            index=await models.EventAgenda.filter(event_id=kwargs.get("event_id")).count() + 1,
         )
 
         return CreateEventAgendaMutation(
@@ -1039,7 +1115,7 @@ class UpdateEventAgendaMutation(graphene.Mutation):
         return UpdateEventAgendaMutation(
             success=True,
             message="Event Agenda updated successfully",
-            event_agenda=event_agenda,
+            event_agenda=await models.EventAgenda.filter(id=kwargs.get("id")).first(),
         )
 
 
@@ -1077,6 +1153,7 @@ class CreateEventDocumentMutation(graphene.Mutation):
         title = graphene.String(required=True)
         description = graphene.String(required=False)
         file = Upload(required=True)
+        department_id = graphene.Int(required=False)
 
     @login_required
     async def mutate(self, info, *args, **kwargs):
@@ -1101,7 +1178,7 @@ class CreateEventDocumentMutation(graphene.Mutation):
 
         # graphene receive a file and save it in a temporary file
         # we need to read it and upload it to minio
-        file = kwargs.get("file")['file']
+        file = kwargs.get("file")
         # process file of type starlette.datastructures.UploadFile
         file = MinioUploader().upload(file)
 
@@ -1115,6 +1192,30 @@ class CreateEventDocumentMutation(graphene.Mutation):
             file=kwargs.get("file"),
             author_id=info.context['request'].user.id
         )
+        
+        
+        if kwargs.get("department_id"):
+            department_id = kwargs.get("department_id")
+            # check if EventDocumentDepartment already exists
+            event_document_department = await models.EventDocumentDepartment.filter(
+                event_document_id=event_document.id,
+                department_id=department_id
+            ).first()
+            if not event_document_department:
+                await models.EventDocumentDepartment.create(
+                    event_document_id=event_document.id,
+                    department_id=department_id
+                )
+            # check if event department already exists
+            event_department = await models.EventDepartment.filter(
+                event_id=kwargs.get("event_id"),
+                department_id=department_id,
+            ).first()
+            if not event_department:
+                await models.EventDepartment.create(
+                    event_id=kwargs.get("event_id"),
+                    department_id=department_id,
+                )
 
         return CreateEventDocumentMutation(
             success=True,
@@ -1206,6 +1307,30 @@ class CreateUserCredentialsMutation(graphene.Mutation):
         return CreateUserCredentialsMutation(success=True, message="User credentials created successfully")
 
 
+class CreateAllUsersCredentialsMutation(graphene.Mutation):
+    success = graphene.Boolean()
+    message = graphene.String()
+    
+    class Arguments:
+        pass
+    
+    @login_required
+    async def mutate(self, info, *args, **kwargs):
+        from app.manager import MeetingManager
+        # check if user already exists
+        users = await models.User.filter(hash_password__isnull=True, salt_key__isnull=True)
+        
+        for user in users:
+            try:
+                await MeetingManager().create_user_credentials(user)
+            except:
+                pass
+        
+        return CreateAllUsersCredentialsMutation(success=True, message="User credentials created successfully")
+
+
+
+
 class SyncUsersMutation(graphene.Mutation):
     success = graphene.Boolean()
     message = graphene.String()
@@ -1266,9 +1391,14 @@ class UpdateCommitteeMutation(graphene.Mutation):
         if await models.Committee.filter(name__iexact=kwargs.get("name")).exclude(id=kwargs.get("id")).exists():
             return UpdateCommitteeMutation(success=False, message="Committee name already taken")
         
-        committee = await models.Committee.filter(id=kwargs.get("id")).update(**kwargs)
+        kwargs_copy = kwargs.copy()
+        try:
+            kwargs_copy.pop("id")
+        except:
+            pass
+        committee = await models.Committee.filter(id=kwargs.get("id")).update(**kwargs_copy)
         return UpdateCommitteeMutation(
-            success=True, message="Committee updated successfully", committee=committee
+            success=True, message="Committee updated successfully", committee=await models.Committee.filter(id=kwargs.get("id")).first()
         )
 
 
@@ -1307,6 +1437,42 @@ class BlockUnblockCommitteeMutation(graphene.Mutation):
         committee = await models.Committee.filter(id=kwargs.get("id")).update(is_active=kwargs.get("block"))
         return BlockUnblockCommitteeMutation(success=True, message="Committee blocked successfully", committee=committee)
 
+
+
+class BlockCommitteeMutation(graphene.Mutation):
+    success = graphene.Boolean()
+    message = graphene.String()
+    committee = graphene.Field(CommitteeObject)
+    
+    class Arguments:
+        id = graphene.Int(required=True, description="Committee ID")
+    
+    @login_required
+    async def mutate(self, info, *args, **kwargs):
+        # check if committee already exists
+        committee = await models.Committee.filter(id=kwargs.get("id")).first()
+        if not committee:
+            return BlockCommitteeMutation(success=False, message="Committee does not exist")
+        committee = await models.Committee.filter(id=kwargs.get("id")).update(is_active=False)
+        return BlockCommitteeMutation(success=True, message="Committee blocked successfully", committee=committee)
+
+
+class UnblockCommitteeMutation(graphene.Mutation):
+    success = graphene.Boolean()
+    message = graphene.String()
+    committee = graphene.Field(CommitteeObject)
+    
+    class Arguments:
+        id = graphene.Int(required=True, description="Committee ID")
+    
+    @login_required
+    async def mutate(self, info, *args, **kwargs):
+        # check if committee already exists
+        committee = await models.Committee.filter(id=kwargs.get("id")).first()
+        if not committee:
+            return UnblockCommitteeMutation(success=False, message="Committee does not exist")
+        committee = await models.Committee.filter(id=kwargs.get("id")).update(is_active=True)
+        return UnblockCommitteeMutation(success=True, message="Committee unblocked successfully", committee=committee)
 
 
 class AddCommitteeMemberMutation(graphene.Mutation):
@@ -1458,10 +1624,332 @@ class UserChangePasswordMutation(graphene.Mutation):
         await models.UserOTP.filter(user_id=user.id, token=kwargs.get("otp")).update(is_used=True)
         
         return UserChangePasswordMutation(success=True, message=f"Password changed successfully")
-        
 
 
+class AddCommitteDepartmentMutation(graphene.Mutation):
+    success = graphene.Boolean()
+    message = graphene.String()
+    committee_department = graphene.Field(CommitteeDepartmentObject)
     
+    class Arguments:
+        committee_id = graphene.Int(required=True, description="Committee ID")
+        department_id = graphene.Int(required=True, description="Department ID")
+    
+    @login_required
+    async def mutate(self, info, *args, **kwargs):
+        # check if committee exists
+        if not await models.Committee.filter(id=kwargs.get("committee_id")).exists():
+            return AddCommitteDepartmentMutation(success=False, message="Committee does not exist")
+        
+        # check if department exists
+        if not await models.Department.filter(id=kwargs.get("department_id")).exists():
+            return AddCommitteDepartmentMutation(success=False, message="Department does not exist")
+        
+        # check if committee department already exists
+        if await models.CommitteeDepartment.filter(committee_id=kwargs.get("committee_id"), department_id=kwargs.get("department_id")).exists():
+            return AddCommitteDepartmentMutation(success=False, message="Committee Department already exists")
+        
+        # create committee department
+        committee_department = await models.CommitteeDepartment.create(committee_id=kwargs.get("committee_id"), department_id=kwargs.get("department_id"))
+        
+        return AddCommitteDepartmentMutation(success=True, message="Committee Department added successfully", committee_department=committee_department)
+
+
+class RemoveCommitteDepartmentMutation(graphene.Mutation):
+    success = graphene.Boolean()
+    message = graphene.String()
+    
+    class Arguments:
+        committee_id = graphene.Int(required=True, description="Committee ID")
+        department_id = graphene.Int(required=True, description="Department ID")
+    
+    @login_required
+    async def mutate(self, info, *args, **kwargs):
+        # check if committee exists
+        if not await models.Committee.filter(id=kwargs.get("committee_id")).exists():
+            return RemoveCommitteDepartmentMutation(success=False, message="Committee does not exist")
+        
+        # check if department exists
+        if not await models.Department.filter(id=kwargs.get("department_id")).exists():
+            return RemoveCommitteDepartmentMutation(success=False, message="Department does not exist")
+        
+        # check if committee department already exists
+        if not await models.CommitteeDepartment.filter(committee_id=kwargs.get("committee_id"), department_id=kwargs.get("department_id")).exists():
+            return RemoveCommitteDepartmentMutation(success=False, message="Committee Department does not exist")
+        
+        # delete committee department
+        await models.CommitteeDepartment.filter(committee_id=kwargs.get("committee_id"), department_id=kwargs.get("department_id")).delete()
+        
+        return RemoveCommitteDepartmentMutation(success=True, message="Committee Department removed successfully")        
+
+
+
+class CreateEventDocumentNoteMutation(graphene.Mutation):
+    success = graphene.Boolean()
+    message = graphene.String()
+    event_document_note = graphene.Field(EventUserDocumentNoteObject)
+    event_document = graphene.Field(EventDocumentObject)
+    
+    class Arguments:
+        document_id = graphene.Int(required=True, description="Document ID")
+        note = graphene.String(required=True, description="Note")
+    
+    @login_required
+    async def mutate(self, info, *args, **kwargs):
+        # check if document exists
+        if not await models.EventDocument.filter(id=kwargs.get("document_id")).exists():
+            return CreateEventDocumentNoteMutation(success=False, message="Document does not exist")
+        
+        if await models.EventUserDocumentNote.filter(event_document_id=kwargs.get("document_id"), user_id=info.context['request'].user.id).exists():
+            await models.EventUserDocumentNote.filter(event_document_id=kwargs.get("document_id"), user_id=info.context['request'].user.id).update(
+                note=kwargs.get("note")
+            )
+        else:
+            # create document note
+            await models.EventUserDocumentNote.create(event_document_id=kwargs.get("document_id"), user_id=info.context['request'].user.id, note=kwargs.get("note"))
+    
+        
+        return CreateEventDocumentNoteMutation(success=True, 
+                                               message="Document Note added successfully", 
+                                               event_document_note=await models.EventUserDocumentNote.filter(event_document_id=kwargs.get("document_id"), user_id=info.context['request'].user.id).first(),
+                                               event_document=await models.EventDocument.filter(id=kwargs.get("document_id")).first())
+
+
+
+class AddEventCommitteeMutation(graphene.Mutation):
+    success = graphene.Boolean()
+    message = graphene.String()
+    event_committee = graphene.Field(EventCommitteeObject)
+    
+    class Arguments:
+        event_id = graphene.Int(required=True, description="Event ID")
+        committee_id = graphene.Int(required=True, description="Committee ID")
+    
+    @login_required
+    async def mutate(self, info, *args, **kwargs):
+        # check if event exists
+        if not await models.Event.filter(id=kwargs.get("event_id")).exists():
+            return AddEventCommitteeMutation(success=False, message="Event does not exist")
+        
+        # check if committee exists
+        if not await models.Committee.filter(id=kwargs.get("committee_id")).exists():
+            return AddEventCommitteeMutation(success=False, message="Committee does not exist")
+        
+        # check if event committee already exists
+        if await models.EventCommittee.filter(event_id=kwargs.get("event_id"), committee_id=kwargs.get("committee_id")).exists():
+            return AddEventCommitteeMutation(success=False, message="Event Committee already exists")
+        
+        # create event committee
+        await models.EventCommittee.create(
+            event_id=kwargs.get("event_id"), 
+            committee_id=kwargs.get("committee_id"))
+        
+        return AddEventCommitteeMutation(
+            success=True, 
+            message="Event Committee added successfully", 
+            event_committee=await models.EventCommittee.filter(
+                event_id=kwargs.get("event_id"),
+                committee_id=kwargs.get("committee_id")
+            ).first())
+
+
+
+class DeleteEventCommitteeMutation(graphene.Mutation):
+    success = graphene.Boolean()
+    message = graphene.String()
+    
+    class Arguments:
+        event_id = graphene.Int(required=True, description="Event ID")
+        committee_id = graphene.Int(required=True, description="Committee ID")
+    
+    @login_required
+    async def mutate(self, info, *args, **kwargs):
+        # check if event exists
+        if not await models.Event.filter(id=kwargs.get("event_id")).exists():
+            return DeleteEventCommitteeMutation(success=False, message="Event does not exist")
+        
+        # check if committee exists
+        if not await models.Committee.filter(id=kwargs.get("committee_id")).exists():
+            return DeleteEventCommitteeMutation(success=False, message="Committee does not exist")
+        
+        # check if event committee already exists
+        if not await models.EventCommittee.filter(event_id=kwargs.get("event_id"), committee_id=kwargs.get("committee_id")).exists():
+            return DeleteEventCommitteeMutation(success=False, message="Event Committee does not exist")
+        
+        # delete event committee
+        await models.EventCommittee.filter(event_id=kwargs.get("event_id"), committee_id=kwargs.get("committee_id")).delete()
+        
+        return DeleteEventCommitteeMutation(success=True, message="Event Committee removed successfully")
+
+
+class SendMeetingInvitationSmsAllAttendees(graphene.Mutation):
+    success = graphene.Boolean()
+    message = graphene.String()
+    
+    class Arguments:
+        event_id = graphene.Int(required=True, description="Event ID")
+    
+    @login_required
+    async def mutate(self, info, *args, **kwargs):
+        event = await models.Event.filter(id=kwargs.get("event_id")).first()
+        if not event:
+            return SendMeetingInvitationSmsAllAttendees(success=False, message="Event does not exist")
+        
+        manager = await MeetingManager().send_all_meeting_attendee_invitation(event)
+        
+        if not manager:
+            return SendMeetingInvitationSmsAllAttendees(success=False, message="SMS not sent")
+    
+        return SendMeetingInvitationSmsAllAttendees(success=True, message="SMS sent successfully")
+
+
+class SendMeetingInvitationAttendee(graphene.Mutation):
+    success = graphene.Boolean()
+    message = graphene.String()
+    
+    class Arguments:
+        event_id = graphene.Int(required=True, description="Event ID")
+        attendee_id = graphene.Int(required=True, description="Attendee ID")
+    
+    @login_required
+    async def mutate(self, info, *args, **kwargs):
+        event = await models.Event.filter(id=kwargs.get("event_id")).first()
+        attendee = await models.EventAttendee.filter(id=kwargs.get("attendee_id")).first()
+        if event and attendee:
+            manager = await MeetingManager().send_meeting_attendee_invitation(
+                event,
+                attendee
+            )
+            if manager:
+                return SendMeetingInvitationAttendee(success=True, message="SMS sent successfully")
+        return SendMeetingInvitationAttendee(success=False, message="SMS not sent")
+
+
+class CreateEventMinuteMutation(graphene.Mutation):
+    success = graphene.Boolean()
+    message = graphene.String()
+    event_minute = graphene.Field(EventMinuteObject)
+    
+    class Arguments:
+        event_id = graphene.Int(required=True, description="Event ID")
+        content = graphene.String(required=True, description="Content")
+    
+    @login_required
+    async def mutate(self, info, *args, **kwargs):
+        #check if event exists
+        if not await models.Event.filter(id=kwargs.get("event_id")).exists():
+            return CreateEventMinuteMutation(success=False, message="Event does not exist")
+    
+    
+        # check if event minute by content already exists 
+        if await models.EventMinute.filter(event_id=kwargs.get("event_id"), content__iexact=kwargs.get("content")).exists():
+            return CreateEventMinuteMutation(success=False, message="Event Minute already exists")
+    
+        # create event minute
+        event_minute = await models.EventMinute.create(
+            event_id=kwargs.get("event_id"), 
+            content=kwargs.get("content"),
+            author_id=info.context['request'].user.id,
+            index=await models.EventMinute.filter(event_id=kwargs.get("event_id")).count()+1
+        )
+    
+        return CreateEventMinuteMutation(success=True, message="Event Minute created successfully", event_minute=event_minute)
+
+
+class UpdateEventMinuteMutation(graphene.Mutation):
+    success = graphene.Boolean()
+    message = graphene.String()
+    event_minute = graphene.Field(EventMinuteObject)
+    
+    class Arguments:
+        id = graphene.Int(required=True, description="Event Minute ID")
+        content = graphene.String(required=True, description="Content")
+        index = graphene.Int(required=True, description="Index")
+    
+    @login_required
+    async def mutate(self, info, *args, **kwargs):
+        #check if event minute exists
+        if not await models.EventMinute.filter(id=kwargs.get("id")).exists():
+            return UpdateEventMinuteMutation(success=False, message="Event Minute does not exist")
+        
+        event_minute = await models.EventMinute.filter(id=kwargs.get("id")).first()
+        
+        # check if event minute already exists
+        if await models.EventMinute.filter(event_id=event_minute.event_id,index=kwargs.get("index")).exclude(id=kwargs.get("id")).exists():
+            return UpdateEventMinuteMutation(success=False, message="Event Minute already exists")
+        
+        #check if event minute already exists by content
+        if await models.EventMinute.filter(event_id=event_minute.event_id,content__iexact=kwargs.get("content")).exclude(id=kwargs.get("id")).exists():
+            return UpdateEventMinuteMutation(success=False, message="Event Minute already exists")
+    
+        kwargs_copy = kwargs.copy()
+        try:
+            kwargs_copy.pop("id")
+        except:
+            pass
+        
+        # update event minute
+        event_minute = await models.EventMinute.filter(id=kwargs.get("id")).update(**kwargs_copy)
+        
+        return UpdateEventMinuteMutation(success=True, message="Event Minute updated successfully", event_minute=await models.EventMinute.filter(id=kwargs.get("id")).first())
+
+
+
+class DeleteEventMinuteMutation(graphene.Mutation):
+    success = graphene.Boolean()
+    message = graphene.String()
+    
+    class Arguments:
+        id = graphene.Int(required=True, description="Event Minute ID")
+    
+    @login_required
+    async def mutate(self, info, *args, **kwargs):
+        #check if event minute exists
+        if not await models.EventMinute.filter(id=kwargs.get("id")).exists():
+            return DeleteEventMinuteMutation(success=False, message="Event Minute does not exist")
+    
+        # delete event minute
+        await models.EventMinute.filter(id=kwargs.get("id")).delete()
+        
+        return DeleteEventMinuteMutation(success=True, message="Event Minute deleted successfully")
+
+
+class AddDocumentManagerMutation(graphene.Mutation):
+    success = graphene.Boolean()
+    message = graphene.String()
+    
+    class Arguments:
+        id = graphene.Int(required=True, description="Attendee Id")
+    
+    @login_required
+    async def mutate(self, info, *args, **kwargs):
+        # check if attendee exists
+        if not await models.EventAttendee.filter(id=kwargs.get("id")).exists():
+            return AddDocumentManagerMutation(success=False, message="Attendee does not exist")
+        
+        # update attendee can upload 
+        await models.EventAttendee.filter(id=kwargs.get("id")).update(can_upload=True)
+        return AddDocumentManagerMutation(success=True, message="Attendee can upload successfully")
+
+
+class RemoveDocumentManagerMutation(graphene.Mutation):
+    success = graphene.Boolean()
+    message = graphene.String()
+    
+    class Arguments:
+        id = graphene.Int(required=True, description="Attendee Id")
+    
+    @login_required
+    async def mutate(self, info, *args, **kwargs):
+        # check if attendee exists
+        if not await models.EventAttendee.filter(id=kwargs.get("id")).exists():
+            return RemoveDocumentManagerMutation(success=False, message="Attendee does not exist")
+        
+        # update attendee can upload 
+        await models.EventAttendee.filter(id=kwargs.get("id")).update(can_upload=False)
+        return RemoveDocumentManagerMutation(success=True, message="Attendee can upload successfully")
+
+
 
 class Subscription(graphene.ObjectType):
     count = graphene.Int(upto=graphene.Int())
@@ -1473,7 +1961,6 @@ class Subscription(graphene.ObjectType):
         pass
 
 
-
 class Mutation(graphene.ObjectType):
     auth = AuthMutation.Field()
     register = CreateUserMutation.Field()
@@ -1481,6 +1968,14 @@ class Mutation(graphene.ObjectType):
     create_department = CreateDepartmentMutation.Field()
     update_department = UpdateDepartmentMutation.Field()
     delete_department = DeleteDepartmentMutation.Field()
+    block_department = BlockDepartmentMutation.Field()
+    unblock_department = UnblockDepartmentMutation.Field()
+    
+    create_directorate = CreateDepartmentMutation.Field()
+    update_directorate = UpdateDepartmentMutation.Field()
+    delete_directorate = DeleteDepartmentMutation.Field()
+    block_directorate = BlockDepartmentMutation.Field()
+    unblock_directorate = UnblockDepartmentMutation.Field()
 
     create_user = CreateUserMutation.Field()
     update_user = UpdateUserMutation.Field()
@@ -1518,12 +2013,15 @@ class Mutation(graphene.ObjectType):
     delete_event_document = DeleteEventDocumentMutation.Field()
     
     create_user_credentials = CreateUserCredentialsMutation.Field()
+    create_all_user_credentials = CreateAllUsersCredentialsMutation.Field()
     sync_users = SyncUsersMutation.Field()
     
     create_committee = CreateCommitteeMutation.Field()
     update_committee = UpdateCommitteeMutation.Field()
     delete_committee = DeleteCommitteeMutation.Field()
     block_unblock_committee = BlockUnblockCommitteeMutation.Field()
+    block_committee = BlockCommitteeMutation.Field()
+    unblock_committee = UnblockCommitteeMutation.Field()
     
     add_committee_member = AddCommitteeMemberMutation.Field()
     delete_committee_member = DeleteCommitteeMemberMutation.Field()
@@ -1531,3 +2029,19 @@ class Mutation(graphene.ObjectType):
     forgot_password = ForgotPasswordMutation.Field()
     verify_otp = VerifyOtpMutation.Field()
     user_change_password = UserChangePasswordMutation.Field()
+    
+    add_committee_department = AddCommitteDepartmentMutation.Field()
+    remove_committee_department = RemoveCommitteDepartmentMutation.Field()
+    
+    create_document_user_note = CreateEventDocumentNoteMutation.Field()
+    
+    add_event_committee = AddEventCommitteeMutation.Field()
+    delete_event_committee = DeleteEventCommitteeMutation.Field()
+    
+    send_meeting_invitation_sms_all_attendees = SendMeetingInvitationSmsAllAttendees.Field()
+    send_meeting_invitation_attendee = SendMeetingInvitationAttendee.Field()
+    
+    create_event_minute = CreateEventMinuteMutation.Field()
+    update_event_minute = UpdateEventMinuteMutation.Field()
+    add_document_manager = AddDocumentManagerMutation.Field()
+    remove_document_manager = RemoveDocumentManagerMutation.Field()

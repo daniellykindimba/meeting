@@ -108,7 +108,7 @@ class Query(graphene.ObjectType):
             pages=total_count // size,
             has_next=total_count > offset + size,
             has_prev=page > 1,
-            results=await s.offset(offset).limit(size).all(),
+            results=await s.offset(offset).limit(size).all().order_by("-created"),
         )
 
     @login_required
@@ -146,7 +146,7 @@ class Query(graphene.ObjectType):
             pages=total_count // size,
             has_next=total_count > offset + size,
             has_prev=page > 1,
-            results=await s.offset(offset).limit(size).all(),
+            results=await s.offset(offset).limit(size).all().order_by("-created"),
         )
 
     @login_required
@@ -161,6 +161,7 @@ class Query(graphene.ObjectType):
         where=graphene.JSONString(required=False),
         page=graphene.Int(required=False),
         page_size=graphene.Int(required=False),
+        event_type=graphene.String(required=False),
     )
 
     event = graphene.Field(EventObject, id=graphene.Int(required=True))
@@ -174,6 +175,8 @@ class Query(graphene.ObjectType):
         offset = (page - 1) * size
 
         s = models.Event.all()
+        if kwargs.get("event_type"):
+            s = s.filter(event_type=kwargs.get("event_type"))
 
         # get total count
         total_count = await s.count()
@@ -186,11 +189,170 @@ class Query(graphene.ObjectType):
             has_prev=page > 1,
             results=await s.offset(offset).limit(size).all(),
         )
+    
 
     @login_required
     async def resolve_event(self, info, **kwargs):
         id = kwargs.get("id")
         return await models.Event.get(id=id)
+    
+    
+    event_documents_managers = graphene.Field(
+        EventAttendeePaginatedObject,
+        id=graphene.Int(required=True, description="Event ID"),
+        key=graphene.String(required=False),
+        sort=graphene.String(required=False),
+        where=graphene.JSONString(required=False),
+        page=graphene.Int(required=False),
+        page_size=graphene.Int(required=False),
+    )
+    
+    @login_required
+    async def resolve_event_documents_managers(self, info, **kwargs):
+        key = kwargs.get("key") if kwargs.get("key") else ""
+        page = kwargs.get("page") if kwargs.get("page") else 1
+        size = kwargs.get("page_size") if kwargs.get("page_size") else 25
+
+        offset = (page - 1) * size
+
+        s = models.EventAttendee.filter(event_id=kwargs.get("id"), can_upload=True).filter(
+            Q(attendee__first_name__icontains=key) | 
+            Q(attendee__middle_name__icontains=key) | 
+            Q(attendee__last_name__icontains=key) | 
+            Q(attendee__email__icontains=key) | 
+            Q(attendee__username__icontains=key)
+        )
+
+        # get total count
+        total_count = await s.count()
+
+        return EventAttendeePaginatedObject(
+            total=total_count,
+            page=page,
+            pages=total_count // size,
+            has_next=total_count > offset + size,
+            has_prev=page > 1,
+            results=await s.offset(offset).limit(size).all(),
+        )
+    
+    
+    not_event_documents_managers = graphene.Field(
+        EventAttendeePaginatedObject,
+        id=graphene.Int(required=True, description="Event ID"),
+        key=graphene.String(required=False),
+        sort=graphene.String(required=False),
+        where=graphene.JSONString(required=False),
+        page=graphene.Int(required=False),
+        page_size=graphene.Int(required=False),
+    )
+    
+    @login_required
+    async def resolve_not_event_documents_managers(self, info, **kwargs):
+        key = kwargs.get("key") if kwargs.get("key") else ""
+        page = kwargs.get("page") if kwargs.get("page") else 1
+        size = kwargs.get("page_size") if kwargs.get("page_size") else 25
+
+        offset = (page - 1) * size
+
+        s = models.EventAttendee.filter(event_id=kwargs.get("id"), can_upload=False).filter(
+            Q(attendee__first_name__icontains=key) | 
+            Q(attendee__middle_name__icontains=key) | 
+            Q(attendee__last_name__icontains=key) | 
+            Q(attendee__email__icontains=key) | 
+            Q(attendee__username__icontains=key)
+        )
+
+        # get total count
+        total_count = await s.count()
+
+        return EventAttendeePaginatedObject(
+            total=total_count,
+            page=page,
+            pages=total_count // size,
+            has_next=total_count > offset + size,
+            has_prev=page > 1,
+            results=await s.offset(offset).limit(size).all(),
+        )
+        
+    
+    
+    event_minutes_managers = graphene.Field(
+        EventAttendeePaginatedObject,
+        id=graphene.Int(required=True, description="Event ID"),
+        key=graphene.String(required=False),
+        sort=graphene.String(required=False),
+        where=graphene.JSONString(required=False),
+        page=graphene.Int(required=False),
+        page_size=graphene.Int(required=False),
+    )
+    
+    @login_required
+    async def resolve_event_minutes_managers(self, info, **kwargs):
+        key = kwargs.get("key") if kwargs.get("key") else ""
+        page = kwargs.get("page") if kwargs.get("page") else 1
+        size = kwargs.get("page_size") if kwargs.get("page_size") else 25
+
+        offset = (page - 1) * size
+
+        s = models.EventAttendee.filter(event_id=kwargs.get("id"), manage_minutes=True).filter(
+            Q(attendee__first_name__icontains=key) | 
+            Q(attendee__middle_name__icontains=key) | 
+            Q(attendee__last_name__icontains=key) | 
+            Q(attendee__email__icontains=key) | 
+            Q(attendee__username__icontains=key)
+        )
+
+        # get total count
+        total_count = await s.count()
+
+        return EventAttendeePaginatedObject(
+            total=total_count,
+            page=page,
+            pages=total_count // size,
+            has_next=total_count > offset + size,
+            has_prev=page > 1,
+            results=await s.offset(offset).limit(size).all(),
+        )
+    
+    
+    event_agendas_managers = graphene.Field(
+        EventAttendeePaginatedObject,
+        id=graphene.Int(required=True, description="Event ID"),
+        key=graphene.String(required=False),
+        sort=graphene.String(required=False),
+        where=graphene.JSONString(required=False),
+        page=graphene.Int(required=False),
+        page_size=graphene.Int(required=False),
+    )
+    
+    
+    @login_required
+    async def resolve_evenet_agendas_managers(self, info, **kwargs):
+        key = kwargs.get("key") if kwargs.get("key") else ""
+        page = kwargs.get("page") if kwargs.get("page") else 1
+        size = kwargs.get("page_size") if kwargs.get("page_size") else 25
+
+        offset = (page - 1) * size
+
+        s = models.EventAttendee.filter(event_id=kwargs.get("id"), manage_agendas=True).filter(
+            Q(attendee__first_name__icontains=key) | 
+            Q(attendee__middle_name__icontains=key) | 
+            Q(attendee__last_name__icontains=key) | 
+            Q(attendee__email__icontains=key) | 
+            Q(attendee__username__icontains=key)
+        )
+
+        # get total count
+        total_count = await s.count()
+
+        return EventAttendeePaginatedObject(
+            total=total_count,
+            page=page,
+            pages=total_count // size,
+            has_next=total_count > offset + size,
+            has_prev=page > 1,
+            results=await s.offset(offset).limit(size).all(),
+        )
 
     event_attendees = graphene.Field(
         EventAttendeePaginatedObject,
@@ -206,14 +368,19 @@ class Query(graphene.ObjectType):
 
     @login_required
     async def resolve_event_attendees(self, info, **kwargs):
-        print("=======kwargs: ", kwargs)
         key = kwargs.get("key") if kwargs.get("key") else ""
         page = kwargs.get("page") if kwargs.get("page") else 1
         size = kwargs.get("page_size") if kwargs.get("page_size") else 25
 
         offset = (page - 1) * size
 
-        s = models.EventAttendee.filter(event_id=kwargs.get("id"))
+        s = models.EventAttendee.filter(event_id=kwargs.get("id")).filter(
+            Q(attendee__first_name__icontains=key) | 
+            Q(attendee__middle_name__icontains=key) | 
+            Q(attendee__last_name__icontains=key) | 
+            Q(attendee__email__icontains=key) | 
+            Q(attendee__username__icontains=key)
+        )
 
         # get total count
         total_count = await s.count()
@@ -295,6 +462,9 @@ class Query(graphene.ObjectType):
 
         s = models.EventAgenda.filter(
             event_id=kwargs.get("event_id")
+        ).filter(
+            Q(title__icontains=key) | 
+            Q(description__icontains=key)
         )
 
         # get total count
@@ -306,13 +476,40 @@ class Query(graphene.ObjectType):
             pages=total_count // size,
             has_next=total_count > offset + size,
             has_prev=page > 1,
-            results=await s.offset(offset).limit(size).all(),
+            results=await s.offset(offset).limit(size).all().order_by("index"),
         )
 
     @login_required
     async def resolve_event_agenda(self, info, **kwargs):
         id = kwargs.get("id")
         return await models.EventAgenda.get(id=id)
+
+
+    creation_financial_years = graphene.Field(DataObject)
+    
+    @login_required
+    async def resolve_creation_financial_years(self, info, *args, **kwargs):
+        c_date = pendulum.now()
+        years = []
+        if c_date.month >= 7:
+            years.append(f"{c_date.year + 1}/{c_date.year + 2}")
+            years.append(f"{c_date.year}/{c_date.year + 1}")
+        else:
+            years.append(f"{c_date.year}/{c_date.year + 1}")
+            years.append(f"{c_date.year - 1}/{c_date.year}")
+        
+        return DataObject(data=years)
+    
+    
+    financial_years = graphene.Field(DataObject)
+    
+    @login_required
+    async def resolve_financial_years(self, info, *args, **kwargs):
+        all_events = await models.Event.all()
+        unique_years = set(
+            event.financial_year for event in all_events if event.financial_year is not None)
+        unique_years_list = list(unique_years)
+        return DataObject(data=unique_years_list)
 
     event_types = graphene.Field(DataObject)
 
@@ -398,7 +595,7 @@ class Query(graphene.ObjectType):
 
         # get departments users
         department_users = await models.UserDepartment.filter(
-            department_id__in=kwargs.get("department_ids")
+            department_id__in=kwargs.get("department_ids", [])
         )
 
         # get all users except the ones already added
@@ -496,6 +693,10 @@ class Query(graphene.ObjectType):
         where=graphene.JSONString(required=False),
         page=graphene.Int(required=False),
         page_size=graphene.Int(required=False),
+        event_type=graphene.String(required=False),
+        financial_year=graphene.String(required=False),
+        committee_id=graphene.Int(required=False),
+        department_id=graphene.Int(required=False)
     )
 
     @login_required
@@ -523,6 +724,36 @@ class Query(graphene.ObjectType):
 
         # get all events
         s = models.Event.filter(id__in=event_ids).all()
+        
+        # get event type 
+        event_type = kwargs.get("event_type")
+        # check if event type is not none
+        if event_type:
+            s = s.filter(event_type=event_type)
+        
+        committee_id = kwargs.get("committee_id")
+        if committee_id:
+            committee_events = [
+                ec.event_id for ec in await models.EventCommittee.filter(
+                    committee_id=committee_id)
+            ]
+            s = s.filter(id__in=committee_events)
+        
+        department_id = kwargs.get("department_id")
+        if department_id:
+            department_events = [
+                ed.event_id for ed in await models.EventDepartment.filter(
+                    department_id=department_id)
+            ]
+            s = s.filter(id__in=department_events)
+        
+        financial_year = kwargs.get("financial_year")
+        if financial_year:
+            fy_splitted = str(financial_year).split("/")
+            fy_start_string = f"01/07/{fy_splitted[0]}"
+            fy_start = pendulum.parse(fy_start_string, strict=False)
+            fy_end = pendulum.parse(fy_start_string, strict=False).add(months=12).subtract(days=1)
+            s = s.filter(start_time__gt=fy_start, start_time__lt=fy_end)
 
         # get total count
         total_count = await s.count()
@@ -620,16 +851,21 @@ class Query(graphene.ObjectType):
     
     @login_required
     async def resolve_timeline(self, info, *args, **kwargs):
-        print("=======kwargs: ", kwargs)
         fetch_date = pendulum.parse(kwargs.get("fetch_date"), strict=False)
         
-        event_attendees = await models.EventAttendee.filter(attendee_id=info.context["request"].user.id).all()
+        event_attendees = await models.EventAttendee.filter(
+            attendee_id=info.context["request"].user.id
+        ).all()
         
         # get list of event ids
         events_ids = [e.event_id for e in event_attendees]
         
         # get all events created by user
-        event_author = await models.Event.filter(author_id=info.context["request"].user.id,start_time__year=fetch_date.year, start_time__month=fetch_date.month).all()
+        event_author = await models.Event.filter(
+            author_id=info.context["request"].user.id,
+            start_time__year=fetch_date.year, 
+            start_time__month=fetch_date.month
+        ).all()
         
         # get list of event ids
         events_author_ids = [e.id for e in event_author]
@@ -638,7 +874,10 @@ class Query(graphene.ObjectType):
         events_ids = events_ids + events_author_ids
         
         # get all events
-        events = await models.Event.filter(id__in=events_ids, start_time__year=fetch_date.year, start_time__month=fetch_date.month).all()
+        events = await models.Event.filter(
+            id__in=events_ids, start_time__year=fetch_date.year, 
+            start_time__month=fetch_date.month
+        ).all()
         
         datas = []
         
@@ -656,25 +895,36 @@ class Query(graphene.ObjectType):
     
     
     my_todays_events = graphene.Field(
-        EventPaginatedObject
+        EventPaginatedObject,
+        key=graphene.String(required=False),
+        sort=graphene.String(required=False),
+        where=graphene.JSONString(required=False),
+        page=graphene.Int(required=False),
+        page_size=graphene.Int(required=False),
     )
     
     @login_required
     async def resolve_my_todays_events(self, info, *args, **kwargs):
         # get all events where current user is an attendee
-        events = [e.event_id for e in await models.EventAttendee.filter(
-            attendee_id=info.context['request'].user.id)] + [e.id for e in await Event.filter(
-                author_id=info.context['request'].user.id)]
+        events_ids = [e.event_id for e in await models.EventAttendee.filter(
+            attendee_id=info.context['request'].user.id)] + [
+                e.id for e in await Event.filter(
+                author_id=info.context['request'].user.id)
+            ]
         
         # filter unique events
-        events = list(set(events))
+        events_ids = list(set(events_ids))
         
-        # get all events order by start time
+        # get all events order by start time in wqhich start time is starting from today
+        c_date = pendulum.now()
         events = await models.Event.filter(
-            id__in=events).order_by("start_time").all()
+            id__in=events_ids
+        ).filter(
+            start_time__lt=c_date, 
+            end_time__gt=c_date).order_by("-start_time")
         
         # only 4
-        events = events[:4]
+        events = events[:10]
         
         return EventPaginatedObject(
             total=len(events),
@@ -697,7 +947,11 @@ class Query(graphene.ObjectType):
         events_attendee = await models.EventAttendee.filter(
             attendee_id=info.context['request'].user.id).all()
         
-        events_ids = [e.event_id for e in events_attendee] + [e.id for e in await Event.filter(author_id=info.context['request'].user.id)]
+        events_ids = [e.event_id for e in events_attendee] + [
+            e.id for e in await Event.filter(
+                author_id=info.context['request'].user.id
+            )
+        ]
         
         # get all events documents order by created 
         documents = await models.EventDocument.filter(
@@ -782,7 +1036,9 @@ class Query(graphene.ObjectType):
             results=await s.offset(offset).limit(size).all(),
         )
     
-    committee_member = graphene.Field(userCommitteeObject, id=graphene.Int(required=True))
+    committee_member = graphene.Field(
+        userCommitteeObject, id=graphene.Int(required=True)
+    )
     
     @login_required
     async def resolve_committee_member(self, info, *args, **kwargs):
@@ -810,7 +1066,11 @@ class Query(graphene.ObjectType):
         committee = await models.Committee.get(id=kwargs.get("id"))
         
         # get all committee members
-        committee_members = [u.user_id for u in await models.UserCommittee.filter(committee_id=committee.id).all()]
+        committee_members = [
+            u.user_id for u in await models.UserCommittee.filter(
+                committee_id=committee.id
+            ).all()
+        ]
         
         s = models.User.filter(
             ~Q(id__in=committee_members)
@@ -836,5 +1096,218 @@ class Query(graphene.ObjectType):
         
     
     
+    committee_departments = graphene.Field(
+        CommitteeDepartmentPaginatedObject,
+        id=graphene.Int(required=True, description="Committee ID"),
+        key=graphene.String(required=False),
+        sort=graphene.String(required=False),
+        where=graphene.JSONString(required=False),
+        page=graphene.Int(required=False),
+        page_size=graphene.Int(required=False),
+    )
     
+    @login_required
+    async def resolve_committee_departments(self, info, *args, **kwargs):
+        key = kwargs.get("key") if kwargs.get("key") else ""
+        page = kwargs.get("page") if kwargs.get("page") else 1
+        size = kwargs.get("page_size") if kwargs.get("page_size") else 25
+
+        offset = (page - 1) * size
+        
+        s = models.CommitteeDepartment.filter(
+            committee_id=kwargs.get("id")
+        ).order_by("-created")
+        
+        total_count = await s.count()
+        
+        return CommitteeDepartmentPaginatedObject(
+            total=total_count,
+            page=page,
+            pages=total_count // size,
+            has_next=total_count > offset + size,
+            has_prev=page > 1,
+            results=await s.offset(offset).limit(size).all(),
+        )
+    
+    committee_department = graphene.Field(
+        CommitteeDepartmentObject, id=graphene.Int(required=True)
+    )
+    
+    @login_required
+    async def resolve_committee_department(self, info, *args, **kwargs):
+        return await models.CommitteeDepartment.get(id=kwargs.get("id"))
+
+    
+    not_committee_departments = graphene.Field(
+        DepartmentPaginatedObject,
+        id=graphene.Int(required=True, description="Committee ID"),
+        key=graphene.String(required=False),
+        sort=graphene.String(required=False),
+        where=graphene.JSONString(required=False),
+        page=graphene.Int(required=False),
+        page_size=graphene.Int(required=False),
+    )
+    
+    @login_required
+    async def resolve_not_committee_departments(self, info, *args, **kwargs):
+        key = kwargs.get("key") if kwargs.get("key") else ""
+        page = kwargs.get("page") if kwargs.get("page") else 1
+        size = kwargs.get("page_size") if kwargs.get("page_size") else 25
+
+        offset = (page - 1) * size
+        
+        committee = await models.Committee.get(id=kwargs.get("id"))
+        
+        # get all committee members
+        committee_departments = [
+            u.department_id for u in await models.CommitteeDepartment.filter(
+                committee_id=committee.id
+            ).all()
+        ]
+        
+        s = models.Department.filter(
+            ~Q(id__in=committee_departments)
+        ).filter(
+            Q(name__icontains=key) |
+            Q(description__icontains=key)
+        ).order_by("-created")
+        
+        total_count = await s.count()
+        
+        return DepartmentPaginatedObject(
+             total=total_count,
+            page=page,
+            pages=total_count // size,
+            has_next=total_count > offset + size,
+            has_prev=page > 1,
+            results=await s.offset(offset).limit(size).all(),
+        )
+    
+    
+    event_committees = graphene.Field(
+        EventCommitteePaginatedObject,
+        id=graphene.Int(required=True, description="Event ID"),
+        key=graphene.String(required=False),
+        sort=graphene.String(required=False),
+        where=graphene.JSONString(required=False),
+        page=graphene.Int(required=False),
+        page_size=graphene.Int(required=False),
+    )
+    
+    @login_required
+    async def resolve_event_committees(self, info, *args, **kwargs):
+        key = kwargs.get("key") if kwargs.get("key") else ""
+        
+        s = models.EventCommittee.filter(
+            event_id=kwargs.get("id")
+        ).order_by("-created")
+        
+        total_count = await s.count()
+        
+        return EventCommitteePaginatedObject(
+            total=total_count,
+            page=1,
+            pages=1,
+            has_next=False,
+            has_prev=False,
+            results=await s.all(),
+        )
+    
+    event_committee = graphene.Field(
+        EventCommitteeObject, id=graphene.Int(required=True)
+    )
+    
+    @login_required
+    async def resolve_event_committee(self, info, *args, **kwargs):
+        return await models.EventCommittee.get(id=kwargs.get("id"))
+
+    event_committees_to_add = graphene.Field(
+        CommitteePaginatedObject,
+        id=graphene.Int(required=True, description="Event ID"),
+        key=graphene.String(required=False),
+        sort=graphene.String(required=False),
+        where=graphene.JSONString(required=False),
+        page=graphene.Int(required=False),
+        page_size=graphene.Int(required=False),
+    )
+    
+    @login_required
+    async def resolve_event_committees_to_add(self, info, *args, **kwargs):
+        key = kwargs.get("key") if kwargs.get("key") else ""
+        
+        # get all event committees
+        event_committees = [
+            e.committee_id for e in await models.EventCommittee.filter(
+                event_id=kwargs.get("id")
+            ).all()
+        ]
+        
+        s = models.Committee.filter(
+            ~Q(id__in=event_committees)
+        ).filter(
+            Q(name__icontains=key) |
+            Q(description__icontains=key)
+        ).order_by("-created")
+        
+        total_count = await s.count()
+        
+        return CommitteePaginatedObject(
+             total=total_count,
+            page=1,
+            pages=1,
+            has_next=False,
+            has_prev=False,
+            results=await s.all(),
+        )
+    
+    
+    user_event_document_note = graphene.Field(
+        EventUserDocumentNoteObject,
+        id=graphene.Int(required=True, description="Event Document ID")
+    )
+    
+    @login_required
+    async def resolve_user_event_document_note(self, info, *args, **kwargs):
+        # check if event_document exists
+        event_document = await models.EventDocument.get(id=kwargs.get("id"))
+        if not event_document:
+            raise Exception("Event Document not found")
+        
+        return await models.EventUserDocumentNote.get(
+            event_document_id=kwargs.get("id"), 
+            user_id=info.context['request'].user.id)
+
+    event_minutes = graphene.Field(
+        EventMinutePaginatedObject,
+        event_id=graphene.Int(required=True, description="Event ID"),
+        key=graphene.String(required=False),
+        sort=graphene.String(required=False),
+        where=graphene.JSONString(required=False),
+        page=graphene.Int(required=False),
+        page_size=graphene.Int(required=False),
+    )
+    
+    @login_required
+    async def resolve_event_minutes(self, info, *args, **kwargs):
+        key = kwargs.get("key") if kwargs.get("key") else ""
+        
+        s = models.EventMinute.filter(
+            event_id=kwargs.get("event_id")
+        ).order_by("index")
+        
+        total_count = await s.count()
+        
+        return EventMinutePaginatedObject(
+            total=total_count,
+            page=1,
+            pages=1,
+            has_next=False,
+            has_prev=False,
+            results=await s.all(),
+        )
+
+
+    
+    
+        
     

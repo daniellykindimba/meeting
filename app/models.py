@@ -33,6 +33,17 @@ class Committee(MiscFields):
         pass
 
 
+class CommitteeDepartment(MiscFields):
+    id = fields.IntField(pk=True)
+    committee = fields.ForeignKeyField('models.Committee',
+                                        related_name="committee_departments",
+                                        on_delete=fields.CASCADE)
+    department = fields.ForeignKeyField('models.Department',
+                                        related_name="committee_departments",
+                                        on_delete=fields.CASCADE)
+    
+
+
 class User(MiscFields):
     id = fields.IntField(pk=True)
     first_name = fields.CharField(max_length=100, null=False, blank=False)
@@ -122,8 +133,10 @@ class Venue(MiscFields):
 
 class EventType(enum.Enum):
     MEETING = "meeting"
+    BOARD = "board"
+    COMMITTEE = "committee"
     TRAINING = "training"
-    OTHER = "other"
+    MANAGEMENT = "management"
 
 
 class Event(MiscFields):
@@ -139,6 +152,7 @@ class Event(MiscFields):
     author = fields.ForeignKeyField('models.User',
                                     related_name="events",
                                     on_delete=fields.CASCADE)
+    financial_year = fields.CharField(max_length=100, null=True, blank=True)
     
 
     class PydanticMeta:
@@ -171,6 +185,9 @@ class EventAttendee(MiscFields):
                                       related_name="event_attendees",
                                       on_delete=fields.CASCADE)
     is_attending = fields.BooleanField(default=False)
+    can_upload = fields.BooleanField(default=False)
+    manage_minutes = fields.BooleanField(default=False)
+    manage_agendas = fields.BooleanField(default=False)
 
     class PydanticMeta:
         pass
@@ -182,11 +199,29 @@ class EventAgenda(MiscFields):
     event = fields.ForeignKeyField('models.Event',
                                    related_name="event_agendas",
                                    on_delete=fields.CASCADE)
-    title = fields.CharField(max_length=100, null=False, blank=False)
+    title = fields.TextField(null=False, blank=False)
     description = fields.TextField(null=True, blank=True)
+    index = fields.IntField(default=1)
     start_time = fields.DatetimeField(null=True, blank=True)
     end_time = fields.DatetimeField(null=True, blank=True)
 
+    class PydanticMeta:
+        pass
+
+
+class EventMinute(MiscFields):
+    id = fields.IntField(pk=True)
+    event = fields.ForeignKeyField('models.Event',
+                                      related_name="event_minutes",
+                                        on_delete=fields.CASCADE)
+    content = fields.TextField(null=True, blank=True)
+    author = fields.ForeignKeyField('models.User',
+                                    related_name="event_minutes",
+                                    null=True,
+                                    blank=True,
+                                    on_delete=fields.SET_NULL)
+    index = fields.IntField(default=1)
+    
     class PydanticMeta:
         pass
 
@@ -207,6 +242,30 @@ class EventDocument(MiscFields):
 
     class PydanticMeta:
         pass
+
+
+class EventDocumentDepartment(MiscFields):
+    id = fields.IntField(pk=True)
+    event_document = fields.ForeignKeyField('models.EventDocument',
+                                            related_name="event_document_departments",
+                                            on_delete=fields.CASCADE)
+    department = fields.ForeignKeyField('models.Department',
+                                        related_name="event_document_departments",
+                                        on_delete=fields.CASCADE)
+
+    class PydanticMeta:
+        pass
+
+
+class EventUserDocumentNote(MiscFields):
+    id = fields.IntField(pk=True)
+    event_document = fields.ForeignKeyField('models.EventDocument',
+                                                related_name="event_user_document_notes",
+                                                on_delete=fields.CASCADE)
+    user = fields.ForeignKeyField('models.User',
+                                    related_name="event_user_document_notes",   
+                                    on_delete=fields.CASCADE)
+    note = fields.TextField(null=True, blank=True)
 
 
 class EventCommittee(MiscFields):

@@ -1,10 +1,34 @@
 from services.sms import SMS
 from app.validators.phone_validator import PhoneValidator
-from app.models import User, UserOTP
+from app.models import User, UserOTP, EventAttendee
 import random
 import string
 import bcrypt
 import json
+import httpx
+
+
+
+
+class GeneralMailForwarder:
+    def __init__(self, to,title,message,policy_id=None,to_customer=None):
+        self.to = to
+        self.message = message
+        self.title = title
+        self.forward_ip_address = f"http://192.168.1.52/production/manager/send_mail/"
+        self.policy_id = policy_id
+        self.to_customer = to_customer
+        self.data = {
+            "message":self.message,
+            "to":self.to,
+            "title":self.title,
+            "policy":self.policy_id,
+            "to_customer":self.to_customer
+        }
+    def bridge(self):
+        with httpx.Client() as client:
+            response = client.post(self.forward_ip_address, data=self.data)
+        return response
 
 
 class MeetingManager:
@@ -21,6 +45,41 @@ class MeetingManager:
         # generate numeric token
         token = ''.join(random.choices(string.digits, k = n))
         return token
+
+    async def send_meeting_attendee_invitation(self, meeting, attendee):
+        # create sms message 
+        try:
+            user = await User.filter(id=attendee.attendee_id).first()
+            start_time = meeting.start_time.strftime("%d-%m-%Y %H:%M")
+            meeting_link = f"http://meetings.nictanzania.co.tz/meeting/{meeting.id}/{meeting.title}"
+            message = f"""Dear {user.full_name()}, you have been invited to attend a {meeting.title} on {start_time}, please open this link to join the meeting {meeting_link}"""
+            valid_phone = PhoneValidator(user.phone)
+            if valid_phone.validate():
+                sms = SMS()
+                to = valid_phone.international_format()
+                await sms.send(to, message, user.full_name())
+        except:
+            pass
+        
+        return True
+
+    async def send_all_meeting_attendee_invitation(self, meeting):
+        # create sms message 
+        try:
+            attendees = await EventAttendee.filter(event_id=meeting.id).all()
+            for attendee in attendees:
+                user = await User.filter(id=attendee.attendee_id).first()
+                start_time = meeting.start_time.strftime("%d-%m-%Y %H:%M")
+                message = f"""Dear {user.full_name()}, you have been invited to attend a {meeting.title} on {start_time}"""
+                valid_phone = PhoneValidator(user.phone)
+                if valid_phone.validate():
+                    sms = SMS()
+                    to = valid_phone.international_format()
+                    await sms.send(to, message, user.full_name())
+        except:
+            pass
+        
+        return True
 
     async def send_user_recovery_token(self, user):
         token = await self.generate_random_token()
@@ -67,7 +126,8 @@ class MeetingManager:
         client_name = f"{user.first_name} {user.middle_name} {user.last_name}"
         message = f"""{client_name}, Welcome to the Meeting App.your Credentials
         Username:{user.email} , 
-        Password:{password}
+        Password:{password}, 
+        Please visit http://meetings.nictanzania.co.tz to login
         """
         to = user.phone
         
@@ -82,6 +142,7 @@ class MeetingManager:
             if updated:
                 sms = SMS()
                 to = validate_phone.international_format()
+                print(message)
                 await sms.send(to, message, client_name)
         
         return True
